@@ -13,30 +13,36 @@ def DrawWindow(win: pygame.Surface, map:SokobanMap = None) -> None:
 def RunForMap(win, map):
     ...
 
-def MoveMan(map: SokobanMap, key) -> None:
+def MoveMan(map: SokobanMap, key) -> bool:
     if key == pygame.K_UP:
         dx, dy = 0, -1
+        map.MoveMan(dx, dy)
     elif key == pygame.K_LEFT:
         dx, dy = -1, 0
+        map.MoveMan(dx, dy)
     elif key == pygame.K_DOWN:
         dx, dy = 0, 1
+        map.MoveMan(dx, dy)
     elif key == pygame.K_RIGHT:
         dx, dy = 1, 0
+        map.MoveMan(dx, dy)
+    elif key == pygame.K_z and (pygame.key.get_mods() & pygame.KMOD_CTRL):
+        map.Undo()
     else:
-        return 
+        return False
     
-    #print(dx, dy)
-    map.MoveMan(dx, dy)
-
+    return True
+    
 def main(win):
+    pygame.key.set_repeat(200, 100)
     maps = convert_from("maps_from_extracted.txt")
     #maps = convert_from("test.txt")
     level = 0
  
-    # map = SokobanMap(maplines = ["mwpP"])
     map = maps[level]
     ticker = pygame.time.Clock()
     run = True
+ 
     while run:
         ticker.tick(FPS)
         for event in pygame.event.get():
@@ -45,8 +51,8 @@ def main(win):
                 break
             if event.type == pygame.KEYDOWN:
                 MoveMan(map, event.key)
-
         DrawWindow(win, map)
+ 
     pygame.quit()
     
 
