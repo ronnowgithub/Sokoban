@@ -1,7 +1,10 @@
 
 from pygame import transform, image, Surface
 from pygame import font as pgFont
+from collections import deque
+import pygame
 
+MY_KEY_EVENT = pygame.USEREVENT+1
 
 TILE_SIZE = (32,32)
 
@@ -29,7 +32,6 @@ class SokoList(list):
             if s.x == x and s.y == y:
                 return s
         return None
-
 
 class Man(SokoTile):
     tilepic = transform.scale(image.load(MAN_PATH), TILE_SIZE)
@@ -81,7 +83,6 @@ class SokoMoveList(list):
     def __init__(self):
         super().__init__()
         
-
 class SokobanMap(object):
 
     def __init__(self, level= 0, maplines = []):
@@ -170,10 +171,61 @@ class SokobanMap(object):
         if last_move.packet:
             last_move.packet.x += dx
             last_move.packet.y += dy
-            #TODO: don't like this manual setting os isPlaced... will do in some refactoring
+            #TODO: don't like this manual setting of isPlaced... will do in some refactoring
             last_move.packet.isPlaced = self.targets.isCoordsInList(last_move.packet.x, last_move.packet.y)     
 
         self.nofMoves -= 1
+        
+    def IsAvailableForMan(self, x, y) -> bool:
+        if self.packets.isCoordsInList(x, y) or self.walls.isCoordsInList(x, y):
+            return False
+        return True
+    
+    def InBounds(self, x: int, y: int) -> bool:
+        return 0 <= x < self.columns and 0 <= y < self.rows
+    
+    def FindPath(self, start: tuple[int, int], goal: tuple[int, int]) -> list:
+        directions: list[tuple[int, int]] = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        queue = deque([(start, [])])  # (position, path)
+        visited = set([start])
+
+        while queue:
+            (x, y), path = queue.popleft()
+            if (x, y) == goal:
+                return path  
+
+            for dx, dy in directions:
+                new_x, new_y = x + dx, y + dy
+                if (self.InBounds(new_x, new_y) and 
+                    self.IsAvailableForMan(new_x, new_y) and (new_x, new_y) not in visited):
+                    queue.append(((new_x, new_y), path + [(new_x, new_y)]))
+                    visited.add((new_x, new_y))
+
+        return None
+        
+    def RunManTo(self, mouse_x: int, mouse_y: int) -> SokoMoveList:
+        keymap = {
+            (-1,0) : pygame.K_LEFT,
+            (1,0) : pygame.K_RIGHT,
+            (0,-1) : pygame.K_UP,
+            (0,1) : pygame.K_DOWN,
+        }
+        target_x = mouse_x // TILE_SIZE[0]
+        target_y = mouse_y // TILE_SIZE[1]
+        path = self.FindPath((self.man.x, self.man.y), (target_x, target_y))
+        
+        if path:
+            man_x = self.man.x
+            man_y = self.man.y
+            for x, y in path:
+                
+                #self.MoveMan(x - self.man.x, y - self.man.y)
+                dx, dy = x - man_x, y - man_y
+                man_x += dx
+                man_y += dy
+                key = keymap[(dx, dy)]
+                ev = pygame.event.Event(pygame.KEYDOWN, key=key)
+                pygame.event.post(ev)
 
     def IsSolved(self) -> bool:
         return all(p.isPlaced for p in self.packets)
